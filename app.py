@@ -126,6 +126,12 @@ def init_db():
             FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
         );
     """)
+    # Migration: thêm cột category (nhóm) cho DB cũ (idempotent)
+    try:
+        conn.execute("ALTER TABLE forms ADD COLUMN category TEXT")
+    except sqlite3.OperationalError:
+        pass  # cột đã có
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_forms_category ON forms(category)")
     conn.commit()
     conn.close()
 
@@ -196,6 +202,19 @@ def get_form_tags(db, form_id):
         (form_id,),
     ).fetchall()
     return [r["name"] for r in rows]
+
+
+UNCATEGORIZED = "Chưa phân loại"
+
+
+def list_categories(db):
+    """Trả list [(name, count)] — NULL/empty gom thành 'Chưa phân loại', sắp xếp cuối."""
+    rows = db.execute(
+        "SELECT COALESCE(NULLIF(TRIM(category), ''), ?) AS name, COUNT(*) AS n "
+        "FROM forms GROUP BY name ORDER BY (name = ?), name COLLATE NOCASE",
+        (UNCATEGORIZED, UNCATEGORIZED),
+    ).fetchall()
+    return [(r["name"], r["n"]) for r in rows]
 
 
 # ---------------------------------------------------------------------------
@@ -274,29 +293,62 @@ def logout():
 @login_required
 def index():
     q = (request.args.get("q") or "").strip()
+    cat = (request.args.get("cat") or "").strip()
     q_norm = normalize(q)
     db = get_db()
 
+    where = []
+    params = []
     if q_norm:
-        like = f"%{q_norm}%"
-        rows = db.execute("""
-            SELECT DISTINCT f.* FROM forms f
-            LEFT JOIN form_tags ft ON ft.form_id = f.id
-            LEFT JOIN tags t ON t.id = ft.tag_id
-            WHERE f.title_norm LIKE ? OR t.name_norm LIKE ?
-            ORDER BY f.uploaded_at DESC
-        """, (like, like)).fetchall()
-    else:
-        rows = db.execute("SELECT * FROM forms ORDER BY uploaded_at DESC").fetchall()
+        where.append("(f.title_norm LIKE ? OR t.name_norm LIKE ?)")
+        params.extend([f"%{q_norm}%", f"%{q_norm}%"])
+    if cat:
+        if cat == UNCATEGORIZED:
+            where.append("(f.category IS NULL OR TRIM(f.category) = '')")
+        else:
+            where.append("f.category = ?")
+            params.append(cat)
+
+    sql = """
+        SELECT DISTINCT f.* FROM forms f
+        LEFT JOIN form_tags ft ON ft.form_id = f.id
+        LEFT JOIN tags t ON t.id = ft.tag_id
+    """
+    if where:
+        sql += " WHERE " + " AND ".join(where)
+    sql += " ORDER BY f.uploaded_at DESC"
+
+    rows = db.execute(sql, params).fetchall()
 
     forms = []
     for r in rows:
         d = dict(r)
         d["tags"] = get_form_tags(db, r["id"])
         d["size_kb"] = round(r["size"] / 1024, 1)
+        d["category_display"] = (d.get("category") or "").strip() or UNCATEGORIZED
         forms.append(d)
 
-    return render_template("index.html", forms=forms, q=q)
+    categories = list_categories(db)
+    total_all = sum(n for _, n in categories)
+
+    return render_template(
+        "index.html",
+        forms=forms, q=q, cat=cat,
+        categories=categories, total_all=total_all,
+        UNCATEGORIZED=UNCATEGORIZED,
+    )
+
+
+@app.route("/api/categories")
+@login_required
+def api_categories():
+    db = get_db()
+    rows = db.execute(
+        "SELECT DISTINCT category FROM forms "
+        "WHERE category IS NOT NULL AND TRIM(category) <> '' "
+        "ORDER BY category COLLATE NOCASE"
+    ).fetchall()
+    return jsonify([r["category"] for r in rows])
 
 
 @app.route("/upload", methods=["GET", "POST"])
@@ -306,17 +358,19 @@ def upload():
         title = (request.form.get("title") or "").strip()
         description = (request.form.get("description") or "").strip()
         tags_raw = request.form.get("tags") or ""
+        category = (request.form.get("category") or "").strip()
         file = request.files.get("file")
 
+        ctx = {"title": title, "description": description, "tags": tags_raw, "category": category}
         if not title:
             flash("Thiếu tên biểu mẫu.", "error")
-            return render_template("upload.html", title=title, description=description, tags=tags_raw)
+            return render_template("upload.html", **ctx)
         if not file or not file.filename:
             flash("Chưa chọn file.", "error")
-            return render_template("upload.html", title=title, description=description, tags=tags_raw)
+            return render_template("upload.html", **ctx)
         if not allowed_file(file.filename):
             flash(f"File type không hỗ trợ. Chỉ {', '.join(sorted(config.ALLOWED_EXTENSIONS))}.", "error")
-            return render_template("upload.html", title=title, description=description, tags=tags_raw)
+            return render_template("upload.html", **ctx)
 
         orig_name = secure_filename(file.filename) or file.filename
         ext = orig_name.rsplit(".", 1)[1].lower()
@@ -327,9 +381,9 @@ def upload():
 
         db = get_db()
         cur = db.execute(
-            "INSERT INTO forms (title, title_norm, description, filename, orig_filename, file_type, size, uploaded_by) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (title, normalize(title), description, new_name, orig_name, ext, size, session.get("username")),
+            "INSERT INTO forms (title, title_norm, description, filename, orig_filename, file_type, size, uploaded_by, category) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (title, normalize(title), description, new_name, orig_name, ext, size, session.get("username"), category or None),
         )
         form_id = cur.lastrowid
         upsert_tags_for_form(db, form_id, parse_tags(tags_raw))
@@ -338,7 +392,7 @@ def upload():
         flash(f"Đã lưu: {title}", "success")
         return redirect(url_for("index"))
 
-    return render_template("upload.html", title="", description="", tags="")
+    return render_template("upload.html", title="", description="", tags="", category="")
 
 
 @app.route("/edit/<int:form_id>", methods=["GET", "POST"])
@@ -353,13 +407,14 @@ def edit(form_id):
         title = (request.form.get("title") or "").strip()
         description = (request.form.get("description") or "").strip()
         tags_raw = request.form.get("tags") or ""
+        category = (request.form.get("category") or "").strip()
 
         if not title:
             flash("Thiếu tên biểu mẫu.", "error")
         else:
             db.execute(
-                "UPDATE forms SET title = ?, title_norm = ?, description = ? WHERE id = ?",
-                (title, normalize(title), description, form_id),
+                "UPDATE forms SET title = ?, title_norm = ?, description = ?, category = ? WHERE id = ?",
+                (title, normalize(title), description, category or None, form_id),
             )
             upsert_tags_for_form(db, form_id, parse_tags(tags_raw))
             db.commit()

@@ -18,6 +18,11 @@
         <textarea name="description" class="form-control" rows="2">{{ form.description }}</textarea>
       </div>
       <div class="mb-3">
+        <label class="form-label">Nhóm</label>
+        <input name="category" value="{{ form.category or '' }}" class="form-control" list="categoryOptions" placeholder="vd: Kho, Bán hàng, Kế toán, Nhân sự…">
+        <datalist id="categoryOptions"></datalist>
+      </div>
+      <div class="mb-3">
         <label class="form-label">Tags</label>
         <input name="tags" value="{{ tags }}" class="form-control" placeholder="vd: thu đổi, biên bản, pnj">
       </div>
@@ -28,4 +33,13 @@
     </form>
   </div>
 </div>
+<script>
+  fetch('{{ url_for("api_categories") }}')
+    .then(r => r.json())
+    .then(list => {
+      const dl = document.getElementById('categoryOptions');
+      list.forEach(c => { const o = document.createElement('option'); o.value = c; dl.appendChild(o); });
+    })
+    .catch(() => {});
+</script>
 {% endblock %}

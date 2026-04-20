@@ -8,6 +8,32 @@ body { font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
   padding: 8px 0;
 }
 
+/* Sidebar category (desktop) */
+.category-sidebar {
+  top: 80px;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+}
+.category-list .list-group-item {
+  border: 0;
+  border-radius: 8px !important;
+  margin-bottom: 2px;
+  padding: 10px 12px;
+}
+.category-list .list-group-item.active {
+  background: #A08030;
+  border-color: #A08030;
+}
+.category-list .list-group-item.active .badge {
+  background: rgba(255,255,255,.3) !important;
+}
+.category-list .list-group-item:not(.active):hover {
+  background: rgba(160,128,48,.08);
+  color: #6b4f1a;
+}
+
+.min-w-0 { min-width: 0; }
+
 .form-card { transition: transform .15s ease, box-shadow .15s ease; }
 .form-card:hover { transform: translateY(-2px); box-shadow: 0 .5rem 1rem rgba(0,0,0,.1) !important; }
 
