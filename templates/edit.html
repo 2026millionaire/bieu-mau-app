@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Sửa biểu mẫu{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-8 col-lg-6">
+    <h4 class="mb-3"><i class="bi bi-pencil"></i> Sửa biểu mẫu</h4>
+    <div class="alert alert-info py-2 small">
+      File gốc: <b>{{ form.orig_filename }}</b> ({{ (form.size/1024)|round(1) }} KB)
+      <br>Ghi chú: chỉ sửa metadata, không thay được file. Muốn thay file → xoá và upload lại.
+    </div>
+    <form method="post">
+      <div class="mb-3">
+        <label class="form-label">Tên biểu mẫu <span class="text-danger">*</span></label>
+        <input name="title" value="{{ form.title }}" class="form-control form-control-lg" required autofocus>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Mô tả</label>
+        <textarea name="description" class="form-control" rows="2">{{ form.description }}</textarea>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Tags</label>
+        <input name="tags" value="{{ tags }}" class="form-control" placeholder="vd: thu đổi, biên bản, pnj">
+      </div>
+      <div class="d-flex gap-2">
+        <button class="btn btn-primary btn-lg flex-grow-1"><i class="bi bi-check-lg"></i> Cập nhật</button>
+        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-lg">Huỷ</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

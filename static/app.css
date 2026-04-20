@@ -1,0 +1,26 @@
+body { font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+
+.sticky-search {
+  position: sticky;
+  top: 60px;
+  z-index: 100;
+  background: var(--bs-body-tertiary-bg, #f8f9fa);
+  padding: 8px 0;
+}
+
+.form-card { transition: transform .15s ease, box-shadow .15s ease; }
+.form-card:hover { transform: translateY(-2px); box-shadow: 0 .5rem 1rem rgba(0,0,0,.1) !important; }
+
+.file-icon {
+  width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 8px; font-size: 22px; flex-shrink: 0;
+}
+.file-docx { background: #e7f1fb; color: #2b5797; }
+.file-xlsx { background: #e6f4ea; color: #1e7e34; }
+.file-pdf  { background: #fdecea; color: #c62828; }
+
+@media (max-width: 576px) {
+  .btn-lg { padding: .75rem 1rem; font-size: 1rem; }
+  .sticky-search { top: 56px; }
+}

@@ -1,0 +1,17 @@
+[Unit]
+Description=Bieu Mau PNJ 1305 - Document/form library
+After=network.target
+
+[Service]
+User=root
+WorkingDirectory=/opt/bieu-mau-app
+ExecStart=/opt/bieu-mau-app/venv/bin/gunicorn -b 127.0.0.1:5053 -w 2 --access-logfile - --error-logfile - app:app
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+Environment=APPLICATION_ROOT=/bk/bieu-mau
+Environment=SECRET_KEY=CHANGE_ME_BIEU_MAU_SECRET_KEY
+Environment=PNJ_AUTH_DB_PATH=/opt/pnj-shared/pnj-auth.db
+
+[Install]
+WantedBy=multi-user.target

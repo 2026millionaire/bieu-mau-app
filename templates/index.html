@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block content %}
+
+<form method="get" class="mb-3 sticky-search">
+  <div class="input-group input-group-lg">
+    <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+    <input name="q" value="{{ q }}" class="form-control" placeholder="Tìm theo tên hoặc tag (không dấu OK)..." autofocus>
+    {% if q %}
+      <a href="{{ url_for('index') }}" class="btn btn-outline-secondary"><i class="bi bi-x-lg"></i></a>
+    {% endif %}
+    <button class="btn btn-primary">Tìm</button>
+  </div>
+</form>
+
+{% if not forms %}
+  <div class="text-center text-muted py-5">
+    {% if q %}
+      <i class="bi bi-search fs-1"></i>
+      <p class="mt-2">Không tìm thấy biểu mẫu nào khớp "<b>{{ q }}</b>"</p>
+    {% else %}
+      <i class="bi bi-inbox fs-1"></i>
+      <p class="mt-2">Chưa có biểu mẫu nào.</p>
+      {% if is_admin %}
+        <a href="{{ url_for('upload') }}" class="btn btn-primary"><i class="bi bi-upload"></i> Upload đầu tiên</a>
+      {% endif %}
+    {% endif %}
+  </div>
+{% else %}
+  <p class="text-muted small mb-2">{{ forms|length }} biểu mẫu{% if q %} khớp "<b>{{ q }}</b>"{% endif %}</p>
+  <div class="row g-3">
+    {% for f in forms %}
+    <div class="col-12 col-md-6 col-lg-4">
+      <div class="card h-100 shadow-sm form-card">
+        <div class="card-body d-flex flex-column">
+          <div class="d-flex align-items-start mb-2">
+            <div class="file-icon file-{{ f.file_type }} me-2">
+              {% if f.file_type == 'docx' %}<i class="bi bi-file-earmark-word"></i>
+              {% elif f.file_type == 'xlsx' %}<i class="bi bi-file-earmark-excel"></i>
+              {% elif f.file_type == 'pdf' %}<i class="bi bi-file-earmark-pdf"></i>
+              {% else %}<i class="bi bi-file-earmark"></i>{% endif %}
+            </div>
+            <div class="flex-grow-1">
+              <h6 class="mb-0">{{ f.title }}</h6>
+              <small class="text-muted">{{ f.size_kb }} KB · {{ f.uploaded_at[:10] }}</small>
+            </div>
+          </div>
+          {% if f.description %}
+            <p class="small text-muted mb-2">{{ f.description }}</p>
+          {% endif %}
+          {% if f.tags %}
+            <div class="mb-2">
+              {% for t in f.tags %}<span class="badge bg-secondary-subtle text-secondary-emphasis me-1">{{ t }}</span>{% endfor %}
+            </div>
+          {% endif %}
+          <div class="mt-auto d-flex gap-2">
+            <a href="{{ url_for('download', form_id=f.id) }}" class="btn btn-primary flex-grow-1">
+              <i class="bi bi-download"></i> Tải
+            </a>
+            {% if is_admin %}
+              <a href="{{ url_for('edit', form_id=f.id) }}" class="btn btn-outline-secondary" title="Sửa">
+                <i class="bi bi-pencil"></i>
+              </a>
+              <form method="post" action="{{ url_for('delete', form_id=f.id) }}"
+                    onsubmit="return confirm('Xoá biểu mẫu: {{ f.title }}?');" class="d-inline">
+                <button class="btn btn-outline-danger" title="Xoá"><i class="bi bi-trash"></i></button>
+              </form>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+{% endif %}
+{% endblock %}
