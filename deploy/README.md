@@ -25,11 +25,11 @@ systemctl status bieu-mau-app
 
 # 5. Nginx
 # Edit /etc/nginx/sites-enabled/phieuck
-# Thêm block trong deploy/nginx-location.conf TRƯỚC `location /bk/`
+# Thêm block trong deploy/nginx-location.conf — ở ROOT domain (không phải dưới /bk/)
 nginx -t && systemctl reload nginx
 
 # 6. Test
-curl https://dangkhoa.io.vn/bk/bieu-mau/health
+curl https://dangkhoa.io.vn/bieu-mau/health
 ```
 
 ## Update
